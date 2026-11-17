@@ -1,27 +1,34 @@
 name: Playwright Tests
 on:
-  push:
-    branches: [ main, master ]
-  pull_request:
-    branches: [ main, master ]
+workflow_dispatch:
+ inputs:
+      target:
+        description: Test environment
+        type: choice
+        required: true
+        default: QA
+        options:
+          - QA
+          - UAT
+
 jobs:
   test:
     timeout-minutes: 60
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
-    - uses: actions/setup-node@v4
+    - uses: actions/checkout@v6
+    - uses: actions/setup-node@v6
       with:
-        node-version: lts/*
+        node-version: '2222'
     - name: Install dependencies
       run: npm ci
     - name: Install Playwright Browsers
       run: npx playwright install --with-deps
     - name: Run Playwright tests
-      run: npx playwright test
-    - uses: actions/upload-artifact@v4
-      if: ${{ !cancelled() }}
-      with:
-        name: playwright-report
-        path: playwright-report/
-        retention-days: 30
+      run: npx playwright test tests/api tests/ui --project=chromium
+    
+    env:
+          TEST_ENV:${{ inputs.target == 'QA' && 'qa' || 'uat' }}
+          BASE_URL: ${{ vars[format('{0}_BASE_URL', inputs.target)] }}
+          DEMO_USERNAME: ${{ secrets[format('{0}_DEMO_USERNAME', inputs.target)] }}
+          DEMO_PASSWORD: ${{ secrets[format('{0}_DEMO_PASSWORD', inputs.target)] }}
