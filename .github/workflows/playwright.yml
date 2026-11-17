@@ -44,3 +44,34 @@ jobs:
           name: playwright-report-${{ inputs.target }}
           path: playwright-report/
           retention-days: 14
+      - name: Import Playwright results to Xray
+        if: ${{ !cancelled() && hashFiles('test-results/junit.xml') != '' }}
+        shell: bash
+        env:
+          XRAY_CLIENT_ID: ${{ secrets.XRAY_CLIENT_ID }}
+          XRAY_CLIENT_SECRET: ${{ secrets.XRAY_CLIENT_SECRET }}
+          XRAY_PROJECT_KEY: ${{ vars.XRAY_PROJECT_KEY }}
+          XRAY_TEST_ENVIRONMENT: ${{ inputs.target }}
+        run: |
+          xray_api='https://xray.cloud.getxray.app/api/v2'
+
+          token=$(
+            jq -n \
+              --arg client_id "$XRAY_CLIENT_ID" \
+              --arg client_secret "$XRAY_CLIENT_SECRET" \
+              '{client_id: $client_id, client_secret: $client_secret}' |
+            curl --fail --silent --show-error \
+              --header 'Content-Type: application/json' \
+              --data-binary @- \
+              "$xray_api/authenticate" |
+            jq -er 'strings | select(length > 0)'
+          )
+          echo "::add-mask::$token"
+
+          curl --fail-with-body --silent --show-error \
+            --header "Authorization: Bearer $token" \
+            --header 'Content-Type: text/xml' \
+            --url-query "projectKey=$XRAY_PROJECT_KEY" \
+            --url-query "testEnvironments=$XRAY_TEST_ENVIRONMENT" \
+            --data-binary @test-results/junit.xml \
+            "$xray_api/import/execution/junit"
