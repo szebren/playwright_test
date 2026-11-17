@@ -36,3 +36,11 @@ jobs:
           BASE_URL: ${{ vars[format('{0}_BASE_URL', inputs.target)] }}
           DEMO_USERNAME: ${{ secrets[format('{0}_DEMO_USERNAME', inputs.target)] }}
           DEMO_PASSWORD: ${{ secrets[format('{0}_DEMO_PASSWORD', inputs.target)] }}
+
+      - name: Upload Playwright HTML report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v5
+        with:
+          name: playwright-report-${{ inputs.target }}
+          path: playwright-report/
+          retention-days: 14
